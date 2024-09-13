@@ -1,5 +1,4 @@
 import requests
-import json
 import os
 from dotenv import load_dotenv
 import base64
@@ -47,7 +46,7 @@ def send_request(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def main():
-    image_path = "images/cat (1).jpg"
+    image_path = "data/images/cat/cat (1).jpg"
     image_base64 = image_to_base64(image_path)
     payload = create_payload(image_base64)
 
