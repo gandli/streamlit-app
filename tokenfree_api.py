@@ -3,20 +3,18 @@ import os
 import json
 from dotenv import load_dotenv
 import base64
-from typing import Dict, Any, Generator
+from typing import Dict, Any, Generator, List
 
 # 加载 .env 文件
 load_dotenv()
 TOKENFREE_TOKEN = os.getenv("TOKENFREE_TOKEN")
 API_URL = "https://api.tokenfree.ai/v1/chat/completions"
 
-
 def image_to_base64(image_path: str) -> str:
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode("utf-8")
 
-
-def create_payload(image_base64: str) -> Dict[str, Any]:
+def create_payload(image_base64: str, text: str) -> Dict[str, Any]:
     return {
         "model": "llava-onevision-qwen2-72b-ov",
         "messages": [
@@ -24,7 +22,7 @@ def create_payload(image_base64: str) -> Dict[str, Any]:
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": "用中文详细地描述一下这张图片，最后描述这张图片的关键词，不要有任何前缀"},
+                    {"type": "text", "text": text},
                     {"type": "image_url", "image_url": {"url": image_base64}},
                 ],
             },
@@ -34,7 +32,6 @@ def create_payload(image_base64: str) -> Dict[str, Any]:
         "temperature": 0.1,
         "stream": True,
     }
-
 
 def stream_request(payload: Dict[str, Any]) -> Generator[str, None, None]:
     headers = {
@@ -47,11 +44,10 @@ def stream_request(payload: Dict[str, Any]) -> Generator[str, None, None]:
             if line.startswith(b"data: "):
                 yield line.decode("utf-8")[6:]
 
-
-def main():
-    image_path = "data/images/cat/cat (1).jpg"
+def describe_image(image_path: str, text: str) -> List[str]:
     image_base64 = image_to_base64(image_path)
-    payload = create_payload(image_base64)
+    payload = create_payload(image_base64, text)
+    descriptions = []
 
     try:
         for chunk in stream_request(payload):
@@ -62,13 +58,17 @@ def main():
                         if "delta" in choice and "content" in choice["delta"]:
                             content = choice["delta"]["content"]
                             if content is not None:
-                                print(content, end="")
+                                descriptions.append(content)
             except json.JSONDecodeError:
-                # print(f"解析chunk失败: {e}")
                 pass
     except requests.RequestException as e:
         print(f"请求失败: {e}")
 
+    return descriptions
 
+# Example usage:
 if __name__ == "__main__":
-    main()
+    image_path = "data/images/cat/cat (1).jpg"
+    text = "用中文详细地描述一下这张图片，最后描述这张图片的关键词，不要有任何前缀"
+    descriptions = describe_image(image_path, text)
+    print("".join(descriptions))
