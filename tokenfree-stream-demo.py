@@ -44,8 +44,8 @@ def stream_request(payload: Dict[str, Any]) -> Generator[str, None, None]:
     with requests.post(API_URL, json=payload, headers=headers, stream=True) as response:
         response.raise_for_status()
         for line in response.iter_lines():
-            if line:
-                yield line.decode("utf-8")
+            if line.startswith(b"data: "):
+                yield line.decode("utf-8")[6:]
 
 
 def main():
@@ -55,16 +55,19 @@ def main():
 
     try:
         for chunk in stream_request(payload):
-            print(chunk)
-            chunk_data = json.loads(chunk)
-            if "choices" in chunk_data:
-                for choice in chunk_data["choices"]:
-                    if "delta" in choice and "content" in choice["delta"]:
-                        print(choice["delta"]["content"])
+            try:
+                chunk_data = json.loads(chunk)
+                if "choices" in chunk_data:
+                    for choice in chunk_data["choices"]:
+                        if "delta" in choice and "content" in choice["delta"]:
+                            content = choice["delta"]["content"]
+                            if content is not None:
+                                print(content, end="")
+            except json.JSONDecodeError:
+                # print(f"解析chunk失败: {e}")
+                pass
     except requests.RequestException as e:
         print(f"请求失败: {e}")
-    except json.JSONDecodeError as e:
-        print(f"解析响应失败: {e}")
 
 
 if __name__ == "__main__":
